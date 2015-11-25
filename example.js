@@ -295,12 +295,22 @@ var funcToCallback = {};
 
 function postCall(func) {
   var callback = arguments[arguments.length - 1];
-  funcToCallback[func] = callback;
+
+  var requestId = getNewRequestId().toString();
+  var args = JSON.parse(arguments[arguments.length - 2]);
+  args.tag = requestId;
+  arguments[arguments.length - 2] = JSON.stringify(args);
+
+  funcToCallback[func + requestId] = callback;
 
   nacl_module.postMessage({
     cmd: func,
     args: Array.prototype.slice.call(arguments, 1, -1)
   });
+}
+
+function getNewRequestId(){
+  return Math.floor((Math.random()*10000000)+1)
 }
 
 function ArrayBufferToString(buf) { return String.fromCharCode.apply(null, new Uint16Array(buf)); }
@@ -330,7 +340,18 @@ function handleMessage(message_event) {
     {
       // Result from a function call.
       var params = data.args;
-      var funcName = data.cmd;
+
+      //get the request tag for the request
+      var p_params = {}
+
+      try {
+        p_params = JSON.parse(params[0]);
+      }
+      catch(err){
+        console.log(err)
+      }
+
+      var funcName = data.cmd + (p_params.tag || "");
       var callback = funcToCallback[funcName];
       if (!callback)
       {
